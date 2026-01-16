@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25.6-alpine3.23 AS builder
 
 WORKDIR /build
 
@@ -19,7 +19,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app ./cmd/app
 
 # Stage 2: Runtime
-FROM alpine:3.18
+FROM alpine:3.23
 
 WORKDIR /app
 
