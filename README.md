@@ -7,7 +7,7 @@ A Go-based automation tool that fetches your YNAB budget data weekly and sends a
 - Weekly budget analysis and reporting
 - Category spending breakdown and insights
 - Overspend detection and alerts
-- Automated Telegram notifications
+- Automated Telegram notifications, including support for publishing to a topic in a supergroup
 - Cron-based scheduling (configurable)
 - Dry-run mode for testing (prints to stdout instead of Telegram)
 
@@ -44,7 +44,7 @@ Required environment variables:
 Optional environment variables:
 - `SCHEDULE_CRON` - Cron expression for scheduling (default: `0 9 * * 1`)
 - `LOG_LEVEL` - Log level: debug, info, warn, error (default: `info`)
-- `TELEGRAM_TOPIC_ID` - Telegram topic ID (optional)
+- `TELEGRAM_TOPIC_ID` - Telegram topic ID (optional - if you wish to publish to a topic)
 
 ### 3. Local Development
 
@@ -143,13 +143,13 @@ The bot sends messages in this format:
 
 💰 **Total Spent**: $7518.83
 
-🏆 **Top 11 Spending Categories**
-• **🧘 Fitness**: Activity: $200  Remaining: $20
-• **🥡 Dining Out**: Activity: $250.65  Remaining: $0
-• **🍌 Groceries**: Activity: $123.63  Remaining: $200.04
+🏆 **Top Spending Categories**    
+- **🧘 Fitness**: Activity: $200  Remaining: $20    
+- **🥡 Dining Out**: Activity: $250.65  Remaining: $0    
+- **🍌 Groceries**: Activity: $123.63  Remaining: $200.04     
 
-⚠️ **Over Budget Categories**
-• **🙂 Entertainment**: Activity: $100  Remaining: $-100
+⚠️ **Over Budget Categories**        
+- **🙂 Entertainment**: Activity: $100 Remaining: - $100    
 
 ## Development
 
