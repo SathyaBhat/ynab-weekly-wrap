@@ -23,24 +23,17 @@ FROM alpine:3.18
 
 WORKDIR /app
 
-# Install timezone data and curl for health checks
-RUN apk add --no-cache tzdata curl
+# Install timezone data
+RUN apk add --no-cache tzdata
 
 # Copy the binary from builder
 COPY --from=builder /build/app .
-
-# Copy config template
-COPY configs/config.yaml.example configs/config.yaml
 
 # Create a non-root user
 RUN addgroup -g 1000 ynab && adduser -D -u 1000 -G ynab ynab
 RUN chown -R ynab:ynab /app
 
 USER ynab
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
 
 # Run the application
 CMD ["./app"]
