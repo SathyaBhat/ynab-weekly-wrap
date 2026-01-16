@@ -15,7 +15,7 @@ func NewAnalyzer() *Analyzer {
 	return &Analyzer{}
 }
 
-func (a *Analyzer) AnalyzeWeeklyData(data *ynab.WeeklyData) (*AnalysisResult, error) {
+func (a *Analyzer) AnalyzeWeeklyData(data *ynab.WeeklyData, topCategoriesLimit int) (*AnalysisResult, error) {
 	if data == nil {
 		return nil, fmt.Errorf("weekly data is nil")
 	}
@@ -26,8 +26,8 @@ func (a *Analyzer) AnalyzeWeeklyData(data *ynab.WeeklyData) (*AnalysisResult, er
 	// Calculate budget health
 	overview := a.calculateOverview(categorySpending)
 
-	// Get top 5 spending categories
-	topSpending := a.getTopSpendingCategories(categorySpending, 5)
+	// Get top spending categories (0 = all, >0 = limit to N)
+	topSpending := a.getTopSpendingCategories(categorySpending, topCategoriesLimit)
 
 	// Identify budget wins
 	wins := a.identifyWins(categorySpending)
@@ -39,12 +39,12 @@ func (a *Analyzer) AnalyzeWeeklyData(data *ynab.WeeklyData) (*AnalysisResult, er
 	aheadFocus := a.calculateAheadFocus(categorySpending, data.WeekEnd)
 
 	result := &AnalysisResult{
-		Overview:       overview,
-		TopSpending:    topSpending,
-		Wins:           wins,
-		Concerns:       concerns,
-		AheadFocus:     aheadFocus,
-		DateRange:      data.WeekStart.Format("2006-01-02") + " to " + data.WeekEnd.Format("2006-01-02"),
+		Overview:    overview,
+		TopSpending: topSpending,
+		Wins:        wins,
+		Concerns:    concerns,
+		AheadFocus:  aheadFocus,
+		DateRange:   data.WeekStart.Format("2006-01-02") + " to " + data.WeekEnd.Format("2006-01-02"),
 	}
 
 	return result, nil
@@ -160,18 +160,34 @@ func (a *Analyzer) identifyConcerns(spending []CategorySpending) []CategoryConce
 func (a *Analyzer) getTopSpendingCategories(spending []CategorySpending, limit int) []TopSpendingCategory {
 	var topCategories []TopSpendingCategory
 
+	// Filter out categories with zero spending
+	var withSpending []CategorySpending
+	for _, cat := range spending {
+		if cat.Spent > 0 {
+			withSpending = append(withSpending, cat)
+		}
+	}
+
 	// Sort by spent amount (descending)
-	sort.Slice(spending, func(i, j int) bool {
-		return spending[i].Spent > spending[j].Spent
+	sort.Slice(withSpending, func(i, j int) bool {
+		return withSpending[i].Spent > withSpending[j].Spent
 	})
 
+	// If limit is 0, return all categories; otherwise limit to N
+	actualLimit := limit
+	if limit == 0 {
+		actualLimit = len(withSpending)
+	}
+
 	// Take top N categories
-	for i := 0; i < limit && i < len(spending); i++ {
-		cat := spending[i]
+	for i := 0; i < actualLimit && i < len(withSpending); i++ {
+		cat := withSpending[i]
 		topCategories = append(topCategories, TopSpendingCategory{
-			Category:  cat.Category.Name,
-			Spent:     cat.Spent,
-			Budgeted:  cat.Budgeted,
+			Category:   cat.Category.Name,
+			Spent:      cat.Spent,
+			Budgeted:   cat.Budgeted,
+			Activity:   cat.Category.Activity,
+			Balance:    cat.Category.Balance,
 			Percentage: cat.Percentage,
 		})
 	}
@@ -182,17 +198,22 @@ func (a *Analyzer) getTopSpendingCategories(spending []CategorySpending, limit i
 func (a *Analyzer) identifyConcernsWithTransactions(spending []CategorySpending) []CategoryConcernWithTransactions {
 	var concerns []CategoryConcernWithTransactions
 
-	// Sort by overspending (descending)
+	// Sort by balance (ascending - most negative first)
 	sort.Slice(spending, func(i, j int) bool {
-		return spending[i].Remaining < spending[j].Remaining
+		return spending[i].Category.Balance < spending[j].Category.Balance
 	})
 
-	// Find categories that are over budget
+	// Find categories that have negative balance (over budget)
 	for _, cat := range spending {
-		if cat.Remaining < 0 {
+		if cat.Category.Balance < 0 {
+			// Calculate how much we're over the available balance
+			overage := -cat.Category.Balance
 			concerns = append(concerns, CategoryConcernWithTransactions{
 				Category:     cat.Category.Name,
-				Over:         -cat.Remaining,
+				Budgeted:     cat.Budgeted,
+				Spent:        cat.Spent,
+				Balance:      cat.Category.Balance,
+				Over:         overage,
 				Percentage:   cat.Percentage,
 				Transactions: cat.Transactions,
 			})

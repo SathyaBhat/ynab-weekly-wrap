@@ -14,13 +14,13 @@ import (
 )
 
 type Scheduler struct {
-	cron            *cron.Cron
-	config          *config.Config
-	ynabClient      *ynab.Client
-	telegramBot     *telegram.Bot
-	analyzer        *processor.Analyzer
-	dryRun          bool
-	skipTelegram    bool
+	cron         *cron.Cron
+	config       *config.Config
+	ynabClient   *ynab.Client
+	telegramBot  *telegram.Bot
+	analyzer     *processor.Analyzer
+	dryRun       bool
+	skipTelegram bool
 }
 
 // SchedulerOption is a functional option for configuring Scheduler
@@ -41,26 +41,7 @@ func WithSkipTelegram(skip bool) SchedulerOption {
 }
 
 func NewScheduler(cfg *config.Config, opts ...SchedulerOption) *Scheduler {
-	var location *time.Location
-	
-	// Try to load the specified timezone
-	loc, err := time.LoadLocation(cfg.Schedule.Timezone)
-	if err == nil {
-		location = loc
-	} else {
-		// Fallback: try to use system local timezone
-		loc, err := time.LoadLocation("Local")
-		if err == nil {
-			log.Printf("Warning: Could not load timezone '%s', using system local timezone", cfg.Schedule.Timezone)
-			location = loc
-		} else {
-			// Final fallback: use UTC
-			log.Printf("Warning: Could not load timezone '%s' or system local timezone, using UTC", cfg.Schedule.Timezone)
-			location = time.UTC
-		}
-	}
-
-	cronScheduler := cron.New(cron.WithLocation(location))
+	cronScheduler := cron.New()
 
 	sched := &Scheduler{
 		cron:         cronScheduler,
@@ -89,7 +70,7 @@ func NewScheduler(cfg *config.Config, opts ...SchedulerOption) *Scheduler {
 }
 
 func (s *Scheduler) Start() error {
-	log.Printf("Starting scheduler with cron expression: %s in timezone: %s", s.config.Schedule.Cron, s.config.Schedule.Timezone)
+	log.Printf("Starting scheduler with cron expression: %s", s.config.Schedule.Cron)
 
 	// Add weekly wrap job
 	_, err := s.cron.AddFunc(s.config.Schedule.Cron, s.runWeeklyWrap)
@@ -127,7 +108,8 @@ func (s *Scheduler) runWeeklyWrap() {
 	}
 
 	// Analyze the data
-	analysis, err := s.analyzer.AnalyzeWeeklyData(data)
+	topCategoriesLimit := s.config.Thresholds.TopCategoriesCount
+	analysis, err := s.analyzer.AnalyzeWeeklyData(data, topCategoriesLimit)
 	if err != nil {
 		log.Printf("Failed to analyze data: %v", err)
 		return
@@ -158,27 +140,56 @@ func (s *Scheduler) runWeeklyWrap() {
 	}
 }
 
+// formatAmount formats a float amount, removing unnecessary decimals
+func (s *Scheduler) formatAmount(amount float64) string {
+	// Check if the amount is a whole number
+	if amount == float64(int64(amount)) {
+		return fmt.Sprintf("%.0f", amount)
+	}
+	// Otherwise show up to 2 decimals, but trim trailing zeros
+	formatted := fmt.Sprintf("%.2f", amount)
+	// Remove trailing zeros after decimal point
+	formatted = strings.TrimRight(formatted, "0")
+	formatted = strings.TrimRight(formatted, ".")
+	return formatted
+}
+
 func (s *Scheduler) formatMessage(analysis *processor.AnalysisResult) string {
 	// Format currency amounts (YNAB stores amounts in millicents)
 	spent := float64(analysis.Overview.TotalSpent) / 1000
+	spentStr := s.formatAmount(spent)
+
+	// Create header with category count
+	categoryCountText := "Spending Categories"
+	if len(analysis.TopSpending) == 0 {
+		categoryCountText = "No Spending Categories"
+	} else if len(analysis.TopSpending) == 1 {
+		categoryCountText = "1 Spending Category"
+	} else {
+		categoryCountText = fmt.Sprintf("%d Spending Categories", len(analysis.TopSpending))
+	}
 
 	message := fmt.Sprintf(
 		"📊 **Weekly Financial Wrap - %s**\n\n"+
-			"💰 **Total Spent**: $%.2f\n\n"+
-			"🏆 **Top 5 Spending Categories**\n",
+			"💰 **Total Spent**: $%s\n\n"+
+			"🏆 **Top %s**\n",
 		analysis.DateRange,
-		spent,
+		spentStr,
+		categoryCountText,
 	)
 
-	// Add top 5 spending categories
-	for i, category := range analysis.TopSpending {
-		if i >= 5 {
-			break
-		}
-		catSpent := float64(category.Spent) / 1000
-		catBudgeted := float64(category.Budgeted) / 1000
-		message += fmt.Sprintf("• **%s**: $%.2f / $%.2f budgeted (%.1f%%)\n",
-			category.Category, catSpent, catBudgeted, category.Percentage)
+	// Add top spending categories
+	for _, category := range analysis.TopSpending {
+		// Activity is stored as negative in YNAB, convert to positive
+		catActivity := -float64(category.Activity) / 1000
+		catBalance := float64(category.Balance) / 1000
+
+		// Format amounts, removing unnecessary decimals
+		activityStr := s.formatAmount(catActivity)
+		balanceStr := s.formatAmount(catBalance)
+
+		message += fmt.Sprintf("• **%s**: Activity: $%s  Remaining: $%s\n",
+			category.Category, activityStr, balanceStr)
 	}
 
 	message += "\n⚠️ **Over Budget Categories**\n"
@@ -186,16 +197,25 @@ func (s *Scheduler) formatMessage(analysis *processor.AnalysisResult) string {
 	// Add concerns with transaction details
 	if len(analysis.Concerns) > 0 {
 		for _, concern := range analysis.Concerns {
-			overAmount := float64(concern.Over) / 1000
-			message += fmt.Sprintf("\n**%s**: $%.2f over budget (%.1f%% of budget)\n",
-				concern.Category, overAmount, concern.Percentage)
-			
+			spentAmount := float64(concern.Spent) / 1000
+			balanceAmount := float64(concern.Balance) / 1000
+
+			spentStr := s.formatAmount(spentAmount)
+			balanceStr := s.formatAmount(balanceAmount)
+
+			message += fmt.Sprintf("\n**%s**: Activity: $%s  Remaining: $%s\n",
+				concern.Category, spentStr, balanceStr)
+
 			// Add transaction details
 			if len(concern.Transactions) > 0 {
-				message += "Transactions:\n"
-				for _, tx := range concern.Transactions {
+				message += "Last 3 transactions:\n"
+				for count, tx := range concern.Transactions {
 					// YNAB stores spending as negative, convert to positive for display
+					if count == 3 {
+						break
+					}
 					txAmount := -float64(tx.Amount) / 1000
+					txAmountStr := s.formatAmount(txAmount)
 					date := ""
 					if tx.Date != nil {
 						date = tx.Date.Format("01-02")
@@ -204,7 +224,7 @@ func (s *Scheduler) formatMessage(analysis *processor.AnalysisResult) string {
 					if memo == "" {
 						memo = tx.PayeeName
 					}
-					message += fmt.Sprintf("  • %s: $%.2f - %s\n", date, txAmount, memo)
+					message += fmt.Sprintf("  • %s: $%s - %s\n", date, txAmountStr, memo)
 				}
 			}
 		}

@@ -11,18 +11,9 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
       - SCHEDULE_CRON=${SCHEDULE_CRON:-0 9 * * 1}
-      - TZ=${TZ:-Australia/Sydney}
       - LOG_LEVEL=${LOG_LEVEL:-info}
-    volumes:
-      - ./configs/config.yaml:/app/configs/config.yaml:ro
-      - ./logs:/app/logs
-    networks:
-      - ynab-network
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-networks:
-  ynab-network:

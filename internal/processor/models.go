@@ -51,11 +51,16 @@ type TopSpendingCategory struct {
 	Category   string
 	Spent      int64
 	Budgeted   int64
+	Activity   int64
+	Balance    int64
 	Percentage float64
 }
 
 type CategoryConcernWithTransactions struct {
 	Category     string
+	Budgeted     int64
+	Spent        int64
+	Balance      int64
 	Over         int64
 	Percentage   float64
 	Transactions []ynab.Transaction

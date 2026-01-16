@@ -43,8 +43,8 @@ func main() {
 	}
 
 	// Initialize scheduler (skip Telegram in test modes)
-	skipTelegram := *dryRun || *once
-	dryRunMode := *dryRun || *once
+	skipTelegram := *dryRun
+	dryRunMode := *dryRun
 	opts := []scheduler.SchedulerOption{scheduler.WithDryRun(dryRunMode)}
 	if skipTelegram {
 		opts = append(opts, scheduler.WithSkipTelegram(true))
@@ -58,9 +58,11 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Start the scheduler (blocking)
-	sched.Start()
+	// Start the scheduler
+	if err := sched.Start(); err != nil {
+		log.Fatalf("Failed to start scheduler: %v", err)
+	}
 
-	// Should never reach here
-	log.Println("YNAB Weekly Wrap stopped")
+	// Keep the application running
+	select {}
 }

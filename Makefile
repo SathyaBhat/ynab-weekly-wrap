@@ -1,9 +1,10 @@
 .PHONY: help build run test clean lint fmt vet docker-build docker-run docker-compose-up docker-compose-down
 
+DOCKER_USERNAME := sathyabhat
 # Variables
 APP_NAME := ynab-weekly-wrap
 DOCKER_IMAGE := $(APP_NAME):latest
-DOCKER_REGISTRY := sathyabhat/$(APP_NAME)
+DOCKER_REGISTRY := $(DOCKER_USERNAME)/$(APP_NAME)
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
