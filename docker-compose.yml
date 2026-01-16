@@ -12,6 +12,8 @@ services:
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
       - SCHEDULE_CRON=${SCHEDULE_CRON:-0 9 * * 1}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+    env_file:
+      - .env
     logging:
       driver: "json-file"
       options:
