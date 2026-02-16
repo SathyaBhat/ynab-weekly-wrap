@@ -72,7 +72,6 @@ func (a *Analyzer) calculateCategorySpending(categories []ynab.Category, transac
 		}
 
 		spend := spendingMap[cat.Name]
-		remaining := cat.Budgeted - spend
 		percentage := float64(spend) / float64(cat.Budgeted) * 100
 
 		categoryTxns := txByCategory[cat.Name]
@@ -81,7 +80,7 @@ func (a *Analyzer) calculateCategorySpending(categories []ynab.Category, transac
 			Category:     cat,
 			Spent:        spend,
 			Budgeted:     cat.Budgeted,
-			Remaining:    remaining,
+			Balance:      cat.Balance, // Use YNAB's balance (remaining for the month)
 			Percentage:   percentage,
 			Transactions: categoryTxns,
 		})
@@ -93,12 +92,12 @@ func (a *Analyzer) calculateCategorySpending(categories []ynab.Category, transac
 func (a *Analyzer) calculateOverview(spending []CategorySpending) *Overview {
 	totalSpent := int64(0)
 	totalBudgeted := int64(0)
-	totalRemaining := int64(0)
+	totalBalance := int64(0)
 
 	for _, cat := range spending {
 		totalSpent += cat.Spent
 		totalBudgeted += cat.Budgeted
-		totalRemaining += cat.Remaining
+		totalBalance += cat.Balance
 	}
 
 	healthPercentage := float64(0)
@@ -109,7 +108,7 @@ func (a *Analyzer) calculateOverview(spending []CategorySpending) *Overview {
 	return &Overview{
 		TotalSpent:       totalSpent,
 		TotalBudgeted:    totalBudgeted,
-		TotalRemaining:   totalRemaining,
+		TotalBalance:     totalBalance,
 		HealthPercentage: healthPercentage,
 	}
 }
@@ -117,19 +116,21 @@ func (a *Analyzer) calculateOverview(spending []CategorySpending) *Overview {
 func (a *Analyzer) identifyWins(spending []CategorySpending) []CategoryWin {
 	var wins []CategoryWin
 
-	// Sort by remaining amount (descending)
+	// Sort by balance (descending) - categories with most money left
 	sort.Slice(spending, func(i, j int) bool {
-		return spending[i].Remaining > spending[j].Remaining
+		return spending[i].Balance > spending[j].Balance
 	})
 
-	// Take top 3 wins
+	// Take top 3 wins (categories with highest remaining balance)
 	for i := 0; i < 3 && i < len(spending); i++ {
 		cat := spending[i]
-		wins = append(wins, CategoryWin{
-			Category:   cat.Category.Name,
-			Saved:      cat.Remaining,
-			Percentage: cat.Percentage,
-		})
+		if cat.Balance > 0 { // Only include categories with positive balance
+			wins = append(wins, CategoryWin{
+				Category:   cat.Category.Name,
+				Balance:    cat.Balance,
+				Percentage: cat.Percentage,
+			})
+		}
 	}
 
 	return wins
@@ -138,17 +139,17 @@ func (a *Analyzer) identifyWins(spending []CategorySpending) []CategoryWin {
 func (a *Analyzer) identifyConcerns(spending []CategorySpending) []CategoryConcern {
 	var concerns []CategoryConcern
 
-	// Sort by overspending (descending)
+	// Sort by balance (ascending) - most negative/lowest balance first
 	sort.Slice(spending, func(i, j int) bool {
-		return spending[i].Remaining < spending[j].Remaining
+		return spending[i].Balance < spending[j].Balance
 	})
 
-	// Find categories that are over budget or near limit
+	// Find categories that are over budget (negative balance)
 	for _, cat := range spending {
-		if cat.Remaining < 0 {
+		if cat.Balance < 0 {
 			concerns = append(concerns, CategoryConcern{
 				Category:   cat.Category.Name,
-				Over:       -cat.Remaining,
+				Over:       -cat.Balance, // How much over budget
 				Percentage: cat.Percentage,
 			})
 		}
@@ -186,8 +187,7 @@ func (a *Analyzer) getTopSpendingCategories(spending []CategorySpending, limit i
 			Category:   cat.Category.Name,
 			Spent:      cat.Spent,
 			Budgeted:   cat.Budgeted,
-			Activity:   cat.Category.Activity,
-			Balance:    cat.Category.Balance,
+			Balance:    cat.Balance,
 			Percentage: cat.Percentage,
 		})
 	}

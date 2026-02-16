@@ -180,16 +180,16 @@ func (s *Scheduler) formatMessage(analysis *processor.AnalysisResult) string {
 
 	// Add top spending categories
 	for _, category := range analysis.TopSpending {
-		// Activity is stored as negative in YNAB, convert to positive
-		catActivity := -float64(category.Activity) / 1000
-		catBalance := float64(category.Balance) / 1000
+		// Weekly spending and remaining balance for the month
+		weeklySpent := float64(category.Spent) / 1000
+		monthlyBalance := float64(category.Balance) / 1000
 
 		// Format amounts, removing unnecessary decimals
-		activityStr := s.formatAmount(catActivity)
-		balanceStr := s.formatAmount(catBalance)
+		spentStr := s.formatAmount(weeklySpent)
+		balanceStr := s.formatAmount(monthlyBalance)
 
-		message += fmt.Sprintf("• **%s**: Activity: $%s  Remaining: $%s\n",
-			category.Category, activityStr, balanceStr)
+		message += fmt.Sprintf("• **%s**: Weekly: $%s  Balance: $%s\n",
+			category.Category, spentStr, balanceStr)
 	}
 
 	message += "\n⚠️ **Over Budget Categories**\n"
@@ -197,13 +197,13 @@ func (s *Scheduler) formatMessage(analysis *processor.AnalysisResult) string {
 	// Add concerns with transaction details
 	if len(analysis.Concerns) > 0 {
 		for _, concern := range analysis.Concerns {
-			spentAmount := float64(concern.Spent) / 1000
-			balanceAmount := float64(concern.Balance) / 1000
+			weeklySpent := float64(concern.Spent) / 1000
+			monthlyBalance := float64(concern.Balance) / 1000
 
-			spentStr := s.formatAmount(spentAmount)
-			balanceStr := s.formatAmount(balanceAmount)
+			spentStr := s.formatAmount(weeklySpent)
+			balanceStr := s.formatAmount(monthlyBalance)
 
-			message += fmt.Sprintf("\n**%s**: Activity: $%s  Remaining: $%s\n",
+			message += fmt.Sprintf("\n**%s**: Weekly: $%s  Balance: $%s\n",
 				concern.Category, spentStr, balanceStr)
 
 			// Add transaction details
