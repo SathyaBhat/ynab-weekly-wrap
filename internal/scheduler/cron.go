@@ -243,7 +243,7 @@ func (s *Scheduler) formatMessage(analysis *processor.AnalysisResult) string {
 		spentStr := s.formatAmount(weeklySpent)
 		balanceStr := s.formatAmount(monthlyBalance)
 
-		message += fmt.Sprintf("• **%s**: Weekly: $%s  Balance: $%s\n",
+		message += fmt.Sprintf("• **%s**: Weekly Spend: $%s  Balance: $%s\n",
 			category.Category, spentStr, balanceStr)
 	}
 
@@ -258,7 +258,7 @@ func (s *Scheduler) formatMessage(analysis *processor.AnalysisResult) string {
 			spentStr := s.formatAmount(weeklySpent)
 			balanceStr := s.formatAmount(monthlyBalance)
 
-			message += fmt.Sprintf("\n**%s**: Weekly: $%s  Balance: $%s\n",
+			message += fmt.Sprintf("\n**%s**: Weekly Spend: $%s  Balance: $%s\n",
 				concern.Category, spentStr, balanceStr)
 
 			// Add transaction details
@@ -306,7 +306,7 @@ func (s *Scheduler) formatMonthlyMessage(analysis *processor.AnalysisResult) str
 	message := fmt.Sprintf(
 		"📊 **Monthly Financial Wrap - %s**\n\n"+
 			"💰 **Total Spent**: $%s\n\n"+
-			"🏆 **Top %s**\n",
+			"🏆 **%s**\n",
 		analysis.DateRange,
 		spentStr,
 		categoryCountText,
@@ -319,7 +319,7 @@ func (s *Scheduler) formatMonthlyMessage(analysis *processor.AnalysisResult) str
 		spentStr := s.formatAmount(monthlySpent)
 		balanceStr := s.formatAmount(monthlyBalance)
 
-		message += fmt.Sprintf("• **%s**: Monthly: $%s  Balance: $%s\n",
+		message += fmt.Sprintf("• **%s**: Monthly Spend: $%s  Balance: $%s\n",
 			category.Category, spentStr, balanceStr)
 	}
 
@@ -333,7 +333,7 @@ func (s *Scheduler) formatMonthlyMessage(analysis *processor.AnalysisResult) str
 			spentStr := s.formatAmount(monthlySpent)
 			balanceStr := s.formatAmount(monthlyBalance)
 
-			message += fmt.Sprintf("\n**%s**: Monthly: $%s  Balance: $%s\n",
+			message += fmt.Sprintf("\n**%s**: Monthly Spend: $%s  Balance: $%s\n",
 				concern.Category, spentStr, balanceStr)
 
 			if len(concern.Transactions) > 0 {
