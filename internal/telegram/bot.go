@@ -39,8 +39,8 @@ func NewBot(telegramConfig config.TelegramConfig) (*Bot, error) {
 	}, nil
 }
 
-func (b *Bot) SendWeeklyWrap(message string) error {
-	log.Printf("Sending weekly wrap to chat ID: %d", b.config.ChatID)
+func (b *Bot) SendMessage(message string) error {
+	log.Printf("Sending message to chat ID: %d", b.config.ChatID)
 
 	return b.sendMessage(message)
 }
@@ -86,35 +86,7 @@ func (b *Bot) sendMessage(message string) error {
 		return fmt.Errorf("telegram API error: %s", apiResp.Error)
 	}
 
-	log.Println("Weekly wrap sent successfully")
+	log.Println("Message sent successfully")
 	return nil
 }
 
-func (b *Bot) TestConnection() error {
-	log.Println("Testing Telegram bot connection...")
-
-	url := fmt.Sprintf("%s/bot%s/getMe", telegramAPIURL, b.config.BotToken)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return fmt.Errorf("failed to test connection: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var apiResp APIResponse
-	if err := json.Unmarshal(body, &apiResp); err != nil {
-		return fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	if !apiResp.OK {
-		return fmt.Errorf("telegram API error: %s", apiResp.Error)
-	}
-
-	log.Println("Telegram bot connection test successful")
-	return nil
-}

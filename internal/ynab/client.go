@@ -108,10 +108,8 @@ func (a *apiClient) getBudget(budgetID string) (*Budget, error) {
 	}
 
 	budget := &Budget{
-		ID:           budgetData.Budget.ID,
-		Name:         budgetData.Budget.Name,
-		LastModified: budgetData.Budget.LastModifiedOn,
-		Categories:   []Category{},
+		ID:   budgetData.Budget.ID,
+		Name: budgetData.Budget.Name,
 	}
 
 	return budget, nil
@@ -140,10 +138,8 @@ func (a *apiClient) getCategories(budgetID string) ([]Category, error) {
 					Hidden:  group.Hidden,
 					Deleted: group.Deleted,
 				},
-				Budgeted:      cat.Budgeted,
-				Activity:      cat.Activity,
-				Balance:       cat.Balance,
-				TargetBalance: cat.Balance,
+				Budgeted: cat.Budgeted,
+				Balance:  cat.Balance,
 			}
 			categories = append(categories, category)
 		}
@@ -179,22 +175,17 @@ func (a *apiClient) getTransactions(budgetID string, start, end time.Time) ([]Tr
 		}
 
 		transaction := Transaction{
-			ID:                t.ID,
-			Date:              &t.Date.Time,
-			Amount:            t.Amount,
-			Memo:              ptrToString(t.Memo),
-			Cleared:           string(t.Cleared),
-			Approved:          t.Approved,
-			FlagColor:         ptrFlagColorToString(t.FlagColor),
-			AccountID:         t.AccountID,
-			AccountName:       t.AccountName,
-			PayeeID:           t.PayeeID,
-			PayeeName:         ptrToString(t.PayeeName),
-			CategoryID:        t.CategoryID,
-			CategoryName:      ptrToString(t.CategoryName),
-			TransferAccountID: t.TransferAccountID,
-			ImportID:          t.ImportID,
-			Deleted:           t.Deleted,
+			ID:           t.ID,
+			Date:         &t.Date.Time,
+			Amount:       t.Amount,
+			Memo:         ptrToString(t.Memo),
+			AccountID:    t.AccountID,
+			AccountName:  t.AccountName,
+			PayeeID:      t.PayeeID,
+			PayeeName:    ptrToString(t.PayeeName),
+			CategoryID:   t.CategoryID,
+			CategoryName: ptrToString(t.CategoryName),
+			Deleted:      t.Deleted,
 		}
 		transactions = append(transactions, transaction)
 	}
@@ -210,9 +201,3 @@ func ptrToString(s *string) string {
 	return *s
 }
 
-func ptrFlagColorToString(fc *ynabtransaction.FlagColor) string {
-	if fc == nil {
-		return ""
-	}
-	return string(*fc)
-}

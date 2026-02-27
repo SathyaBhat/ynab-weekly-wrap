@@ -159,28 +159,6 @@ func (a *Analyzer) identifyWins(spending []CategorySpending) []CategoryWin {
 	return wins
 }
 
-func (a *Analyzer) identifyConcerns(spending []CategorySpending) []CategoryConcern {
-	var concerns []CategoryConcern
-
-	// Sort by balance (ascending) - most negative/lowest balance first
-	sort.Slice(spending, func(i, j int) bool {
-		return spending[i].Balance < spending[j].Balance
-	})
-
-	// Find categories that are over budget (negative balance)
-	for _, cat := range spending {
-		if cat.Balance < 0 {
-			concerns = append(concerns, CategoryConcern{
-				Category:   cat.Category.Name,
-				Over:       -cat.Balance, // How much over budget
-				Percentage: cat.Percentage,
-			})
-		}
-	}
-
-	return concerns
-}
-
 func (a *Analyzer) getTopSpendingCategories(spending []CategorySpending, limit int) []TopSpendingCategory {
 	var topCategories []TopSpendingCategory
 

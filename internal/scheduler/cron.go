@@ -140,7 +140,7 @@ func (s *Scheduler) runWeeklyWrap() {
 		log.Println("Weekly wrap dry-run completed successfully (not sent to Telegram)")
 	} else if s.telegramBot != nil {
 		// Send to Telegram
-		err = s.telegramBot.SendWeeklyWrap(message)
+		err = s.telegramBot.SendMessage(message)
 		if err != nil {
 			log.Printf("Failed to send Telegram message: %v", err)
 			return
@@ -184,7 +184,7 @@ func (s *Scheduler) runMonthlyWrap() {
 		log.Println(separator)
 		log.Println("Monthly wrap dry-run completed successfully (not sent to Telegram)")
 	} else if s.telegramBot != nil {
-		err = s.telegramBot.SendWeeklyWrap(message)
+		err = s.telegramBot.SendMessage(message)
 		if err != nil {
 			log.Printf("Failed to send Telegram message: %v", err)
 			return

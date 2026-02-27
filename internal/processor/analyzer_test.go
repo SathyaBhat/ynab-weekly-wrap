@@ -14,12 +14,11 @@ func makeDate(year, month, day int) *time.Time {
 	return &t
 }
 
-func makeCategory(id, name string, budgeted, activity, balance int64) ynab.Category {
+func makeCategory(id, name string, budgeted, balance int64) ynab.Category {
 	return ynab.Category{
 		ID:       id,
 		Name:     name,
 		Budgeted: budgeted,
-		Activity: activity,
 		Balance:  balance,
 	}
 }
@@ -39,9 +38,9 @@ func baseMonthlyData() *ynab.MonthlyData {
 	return &ynab.MonthlyData{
 		Budget: &ynab.Budget{ID: "b1", Name: "Test Budget"},
 		Categories: []ynab.Category{
-			makeCategory("c1", "Groceries", 500_000, -200_000, 300_000),
-			makeCategory("c2", "Transport", 200_000, -150_000, 50_000),
-			makeCategory("c3", "Dining", 300_000, -350_000, -50_000), // over budget
+			makeCategory("c1", "Groceries", 500_000, 300_000),
+			makeCategory("c2", "Transport", 200_000, 50_000),
+			makeCategory("c3", "Dining", 300_000, -50_000), // over budget
 		},
 		Transactions: []ynab.Transaction{
 			makeTx("t1", makeDate(2026, 1, 5), -200_000, "Groceries"),
@@ -214,8 +213,8 @@ func TestAnalyzeMonthlyData_NoBudgetedCategoriesSkipped(t *testing.T) {
 	data := &ynab.MonthlyData{
 		Budget: &ynab.Budget{ID: "b1"},
 		Categories: []ynab.Category{
-			makeCategory("c1", "Groceries", 500_000, -200_000, 300_000),
-			makeCategory("c2", "Uncategorized", 0, -100_000, -100_000), // Budgeted=0, skip
+			makeCategory("c1", "Groceries", 500_000, 300_000),
+			makeCategory("c2", "Uncategorized", 0, -100_000), // Budgeted=0, skip
 		},
 		Transactions: []ynab.Transaction{
 			makeTx("t1", makeDate(2026, 1, 5), -200_000, "Groceries"),
@@ -288,7 +287,7 @@ func TestAnalyzeMonthlyData_HealthPercentage(t *testing.T) {
 	data := &ynab.MonthlyData{
 		Budget: &ynab.Budget{},
 		Categories: []ynab.Category{
-			makeCategory("c1", "Groceries", 400_000, -200_000, 200_000),
+			makeCategory("c1", "Groceries", 400_000, 200_000),
 		},
 		Transactions: []ynab.Transaction{
 			makeTx("t1", makeDate(2026, 1, 1), -200_000, "Groceries"),

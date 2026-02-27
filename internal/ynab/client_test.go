@@ -48,8 +48,8 @@ func testBudget() *Budget {
 
 func testCategories() []Category {
 	return []Category{
-		{ID: "c1", Name: "Groceries", Budgeted: 500_000, Activity: -200_000, Balance: 300_000},
-		{ID: "c2", Name: "Transport", Budgeted: 200_000, Activity: -150_000, Balance: 50_000},
+		{ID: "c1", Name: "Groceries", Budgeted: 500_000, Balance: 300_000},
+		{ID: "c2", Name: "Transport", Budgeted: 200_000, Balance: 50_000},
 	}
 }
 

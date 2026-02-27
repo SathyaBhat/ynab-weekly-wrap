@@ -9,18 +9,16 @@ import (
 )
 
 type Config struct {
-	YNAB           YNABConfig           `yaml:"ynab"`
-	Telegram       TelegramConfig       `yaml:"telegram"`
-	Schedule       ScheduleConfig       `yaml:"schedule"`
-	Logging        LoggingConfig        `yaml:"logging"`
-	Thresholds     ThresholdConfig      `yaml:"thresholds"`
-	WeeklyAnalysis WeeklyAnalysisConfig `yaml:"weekly_analysis"`
+	YNAB       YNABConfig     `yaml:"ynab"`
+	Telegram   TelegramConfig `yaml:"telegram"`
+	Schedule   ScheduleConfig `yaml:"schedule"`
+	Logging    LoggingConfig  `yaml:"logging"`
+	Thresholds ThresholdConfig `yaml:"thresholds"`
 }
 
 type YNABConfig struct {
 	APIToken string `yaml:"api_token"`
 	BudgetID string `yaml:"budget_id"`
-	BaseURL  string `yaml:"base_url"`
 }
 
 type TelegramConfig struct {
@@ -44,13 +42,6 @@ type ThresholdConfig struct {
 	AtRiskPercent      int `yaml:"at_risk_percent"`
 	OverBudgetPercent  int `yaml:"over_budget_percent"`
 	TopCategoriesCount int `yaml:"top_categories_count"`
-}
-
-type WeeklyAnalysisConfig struct {
-	IncludeOffBudget  bool     `yaml:"include_off_budget"`
-	IncludeTransfers  bool     `yaml:"include_transfers"`
-	FocusCategories   []string `yaml:"focus_categories"`
-	ExcludeCategories []string `yaml:"exclude_categories"`
 }
 
 // loadEnvFile loads environment variables from a .env file

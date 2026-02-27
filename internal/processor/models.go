@@ -6,10 +6,10 @@ import (
 
 type CategorySpending struct {
 	Category     ynab.Category
-	Spent        int64   // Weekly spending for this category
+	Spent        int64   // Spending for this category in the period
 	Budgeted     int64   // Monthly budgeted amount
 	Balance      int64   // Remaining balance for the month (from YNAB)
-	Percentage   float64 // Percentage of monthly budget spent this week
+	Percentage   float64 // Percentage of budget spent in the period
 	Transactions []ynab.Transaction
 }
 
@@ -23,7 +23,7 @@ type AnalysisResult struct {
 }
 
 type Overview struct {
-	TotalSpent       int64   // Total weekly spending across all categories
+	TotalSpent       int64   // Total spending across all categories in the period
 	TotalBudgeted    int64   // Total monthly budget across all categories
 	TotalBalance     int64   // Total remaining balance for the month across all categories
 	HealthPercentage float64 // Percentage of monthly budget used
@@ -35,12 +35,6 @@ type CategoryWin struct {
 	Percentage float64 // Percentage of monthly budget used
 }
 
-type CategoryConcern struct {
-	Category   string
-	Over       int64
-	Percentage float64
-}
-
 type AheadFocus struct {
 	Watch       []string
 	Adjustments []string
@@ -49,10 +43,10 @@ type AheadFocus struct {
 
 type TopSpendingCategory struct {
 	Category   string
-	Spent      int64   // Weekly spending for this category
+	Spent      int64   // Spending for this category in the period
 	Budgeted   int64   // Monthly budgeted amount
 	Balance    int64   // Remaining balance for the month
-	Percentage float64 // Percentage of monthly budget spent this week
+	Percentage float64 // Percentage of budget spent in the period
 }
 
 type CategoryConcernWithTransactions struct {
