@@ -101,12 +101,12 @@ func TestFormatMonthlyMessage_CategoryLabelIsMonthly(t *testing.T) {
 
 	msg := s.formatMonthlyMessage(analysis)
 
-	if !strings.Contains(msg, "Monthly Spend:") {
-		t.Errorf("category line should say 'Monthly Spend:', got:\n%s", msg)
+	if !strings.Contains(msg, "Last Month Spend:") {
+		t.Errorf("category line should say 'Last Month Spend:', got:\n%s", msg)
 	}
-	// Must NOT say "Weekly Spend:" in a monthly message
-	if strings.Contains(msg, "Weekly Spend:") {
-		t.Errorf("monthly message should not contain 'Weekly Spend:', got:\n%s", msg)
+	// Must NOT say "Last Week Spend:" in a monthly message
+	if strings.Contains(msg, "Last Week Spend:") {
+		t.Errorf("monthly message should not contain 'Last Week Spend:', got:\n%s", msg)
 	}
 }
 
@@ -131,8 +131,8 @@ func TestFormatMonthlyMessage_OverBudgetSection(t *testing.T) {
 	if !strings.Contains(msg, "Dining") {
 		t.Error("message missing over-budget category 'Dining'")
 	}
-	if !strings.Contains(msg, "Monthly Spend:") {
-		t.Error("over-budget line should say 'Monthly Spend:'")
+	if !strings.Contains(msg, "Last Month Spend:") {
+		t.Error("over-budget line should say 'Last Month Spend:'")
 	}
 }
 
@@ -200,8 +200,8 @@ func TestFormatMessage_CategoryLabelIsWeekly(t *testing.T) {
 
 	msg := s.formatMessage(analysis)
 
-	if !strings.Contains(msg, "Weekly Spend:") {
-		t.Errorf("category line should say 'Weekly Spend:', got:\n%s", msg)
+	if !strings.Contains(msg, "Last Week Spend:") {
+		t.Errorf("category line should say 'Last Week Spend:', got:\n%s", msg)
 	}
 }
 
