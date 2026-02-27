@@ -30,8 +30,9 @@ type TelegramConfig struct {
 }
 
 type ScheduleConfig struct {
-	Cron     string `yaml:"cron"`
-	Timezone string `yaml:"timezone"`
+	Cron        string `yaml:"cron"`
+	MonthlyCron string `yaml:"monthly_cron"`
+	Timezone    string `yaml:"timezone"`
 }
 
 type LoggingConfig struct {
@@ -114,6 +115,7 @@ func LoadConfig() (*Config, error) {
 	}
 
 	config.Schedule.Cron = os.Getenv("SCHEDULE_CRON")
+	config.Schedule.MonthlyCron = os.Getenv("MONTHLY_SCHEDULE_CRON")
 	config.Logging.Level = os.Getenv("LOG_LEVEL")
 	if topCategoriesStr := os.Getenv("TOP_CATEGORIES_COUNT"); topCategoriesStr != "" {
 		if count, err := strconv.Atoi(topCategoriesStr); err == nil {
@@ -124,6 +126,9 @@ func LoadConfig() (*Config, error) {
 	// Set defaults
 	if config.Schedule.Cron == "" {
 		config.Schedule.Cron = "0 9 * * 1"
+	}
+	if config.Schedule.MonthlyCron == "" {
+		config.Schedule.MonthlyCron = "0 9 1 * *"
 	}
 	if config.Logging.Level == "" {
 		config.Logging.Level = "info"

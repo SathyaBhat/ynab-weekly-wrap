@@ -50,6 +50,29 @@ func (a *Analyzer) AnalyzeWeeklyData(data *ynab.WeeklyData, topCategoriesLimit i
 	return result, nil
 }
 
+func (a *Analyzer) AnalyzeMonthlyData(data *ynab.MonthlyData, topCategoriesLimit int) (*AnalysisResult, error) {
+	if data == nil {
+		return nil, fmt.Errorf("monthly data is nil")
+	}
+
+	categorySpending := a.calculateCategorySpending(data.Categories, data.Transactions)
+	overview := a.calculateOverview(categorySpending)
+	topSpending := a.getTopSpendingCategories(categorySpending, topCategoriesLimit)
+	wins := a.identifyWins(categorySpending)
+	concerns := a.identifyConcernsWithTransactions(categorySpending)
+
+	result := &AnalysisResult{
+		Overview:    overview,
+		TopSpending: topSpending,
+		Wins:        wins,
+		Concerns:    concerns,
+		AheadFocus:  nil,
+		DateRange:   data.MonthStart.Format("January 2006"),
+	}
+
+	return result, nil
+}
+
 func (a *Analyzer) calculateCategorySpending(categories []ynab.Category, transactions []ynab.Transaction) []CategorySpending {
 	spendingMap := make(map[string]int64)
 	txByCategory := make(map[string][]ynab.Transaction)

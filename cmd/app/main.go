@@ -13,6 +13,7 @@ func main() {
 	// Command-line flags
 	dryRun := flag.Bool("dry-run", false, "Run once and print output to stdout without sending to Telegram")
 	once := flag.Bool("once", false, "Run once and exit (for manual testing)")
+	onceMonthly := flag.Bool("once-monthly", false, "Run monthly wrap once and exit")
 	flag.Parse()
 
 	log.Println("Starting YNAB Weekly Wrap...")
@@ -24,7 +25,7 @@ func main() {
 	}
 
 	// Validate configuration (skip Telegram validation in test modes)
-	testMode := *dryRun || *once
+	testMode := *dryRun || *once || *onceMonthly
 	if err := config.ValidateConfig(cfg, testMode); err != nil {
 		log.Fatalf("Invalid configuration: %v", err)
 	}
@@ -41,17 +42,26 @@ func main() {
 	if *once {
 		log.Println("[ONCE MODE] Will run once and exit")
 	}
+	if *onceMonthly {
+		log.Println("[ONCE MONTHLY MODE] Will run monthly wrap once and exit")
+	}
 
-	// Initialize scheduler (skip Telegram in test modes)
-	skipTelegram := *dryRun
+	// Initialize scheduler (skip Telegram only in dry-run mode)
 	dryRunMode := *dryRun
 	opts := []scheduler.SchedulerOption{scheduler.WithDryRun(dryRunMode)}
-	if skipTelegram {
+	if *dryRun {
 		opts = append(opts, scheduler.WithSkipTelegram(true))
 	}
 	sched := scheduler.NewScheduler(cfg, opts...)
 
-	// Run once for testing if requested
+	// Monthly once — check before the weekly once/dry-run block
+	if *onceMonthly {
+		log.Println("Running monthly wrap once and exiting...")
+		sched.RunMonthlyOnce()
+		os.Exit(0)
+	}
+
+	// Run weekly once for testing if requested
 	if *once || *dryRun {
 		log.Println("Running once and exiting...")
 		sched.RunOnce()

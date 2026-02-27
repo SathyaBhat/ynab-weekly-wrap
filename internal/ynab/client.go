@@ -11,32 +11,40 @@ import (
 	"github.com/sathyabhat/ynab-weekly-wrap/internal/config"
 )
 
+// dataFetcher abstracts the three YNAB API calls used by Client,
+// allowing tests to inject a mock without a real network connection.
+type dataFetcher interface {
+	getBudget(budgetID string) (*Budget, error)
+	getCategories(budgetID string) ([]Category, error)
+	getTransactions(budgetID string, start, end time.Time) ([]Transaction, error)
+}
+
 type Client struct {
-	config config.YNABConfig
-	client ynab.ClientServicer
+	config  config.YNABConfig
+	fetcher dataFetcher
 }
 
 func NewClient(ynabConfig config.YNABConfig) *Client {
 	return &Client{
-		config: ynabConfig,
-		client: ynab.NewClient(ynabConfig.APIToken),
+		config:  ynabConfig,
+		fetcher: &apiClient{client: ynab.NewClient(ynabConfig.APIToken)},
 	}
 }
 
 func (c *Client) GetWeeklyData(weekStart, weekEnd time.Time) (*WeeklyData, error) {
 	log.Printf("Fetching weekly data from %s to %s", weekStart.Format("2006-01-02"), weekEnd.Format("2006-01-02"))
 
-	budget, err := c.getBudget(c.config.BudgetID)
+	budget, err := c.fetcher.getBudget(c.config.BudgetID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get budget: %w", err)
 	}
 
-	categories, err := c.getCategories(c.config.BudgetID)
+	categories, err := c.fetcher.getCategories(c.config.BudgetID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get categories: %w", err)
 	}
 
-	transactions, err := c.getTransactions(c.config.BudgetID, weekStart, weekEnd)
+	transactions, err := c.fetcher.getTransactions(c.config.BudgetID, weekStart, weekEnd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transactions: %w", err)
 	}
@@ -52,8 +60,45 @@ func (c *Client) GetWeeklyData(weekStart, weekEnd time.Time) (*WeeklyData, error
 	}, nil
 }
 
-func (c *Client) getBudget(budgetID string) (*Budget, error) {
-	budgetData, err := c.client.Budget().GetBudget(budgetID, nil)
+func (c *Client) GetMonthlyData(year, month int) (*MonthlyData, error) {
+	monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	monthEnd := monthStart.AddDate(0, 1, -1)
+
+	log.Printf("Fetching monthly data for %s to %s", monthStart.Format("2006-01-02"), monthEnd.Format("2006-01-02"))
+
+	budget, err := c.fetcher.getBudget(c.config.BudgetID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get budget: %w", err)
+	}
+
+	categories, err := c.fetcher.getCategories(c.config.BudgetID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get categories: %w", err)
+	}
+
+	transactions, err := c.fetcher.getTransactions(c.config.BudgetID, monthStart, monthEnd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transactions: %w", err)
+	}
+
+	log.Printf("Retrieved %d categories and %d transactions", len(categories), len(transactions))
+
+	return &MonthlyData{
+		Budget:       budget,
+		Categories:   categories,
+		Transactions: transactions,
+		MonthStart:   monthStart,
+		MonthEnd:     monthEnd,
+	}, nil
+}
+
+// apiClient is the real implementation of dataFetcher, delegating to the YNAB library.
+type apiClient struct {
+	client ynab.ClientServicer
+}
+
+func (a *apiClient) getBudget(budgetID string) (*Budget, error) {
+	budgetData, err := a.client.Budget().GetBudget(budgetID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +117,8 @@ func (c *Client) getBudget(budgetID string) (*Budget, error) {
 	return budget, nil
 }
 
-func (c *Client) getCategories(budgetID string) ([]Category, error) {
-	categoriesData, err := c.client.Category().GetCategories(budgetID, nil)
+func (a *apiClient) getCategories(budgetID string) ([]Category, error) {
+	categoriesData, err := a.client.Category().GetCategories(budgetID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +143,7 @@ func (c *Client) getCategories(budgetID string) ([]Category, error) {
 				Budgeted:      cat.Budgeted,
 				Activity:      cat.Activity,
 				Balance:       cat.Balance,
-				TargetBalance: cat.Balance, // Use Balance as TargetBalance for now
+				TargetBalance: cat.Balance,
 			}
 			categories = append(categories, category)
 		}
@@ -107,9 +152,8 @@ func (c *Client) getCategories(budgetID string) ([]Category, error) {
 	return categories, nil
 }
 
-func (c *Client) getTransactions(budgetID string, weekStart, weekEnd time.Time) ([]Transaction, error) {
-	// Convert time.Time to api.Date for the filter
-	sinceDate, err := api.DateFromString(weekStart.Format("2006-01-02"))
+func (a *apiClient) getTransactions(budgetID string, start, end time.Time) ([]Transaction, error) {
+	sinceDate, err := api.DateFromString(start.Format("2006-01-02"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse since date: %w", err)
 	}
@@ -118,7 +162,7 @@ func (c *Client) getTransactions(budgetID string, weekStart, weekEnd time.Time) 
 		Since: &sinceDate,
 	}
 
-	transactionsData, err := c.client.Transaction().GetTransactions(budgetID, filter)
+	transactionsData, err := a.client.Transaction().GetTransactions(budgetID, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -129,9 +173,8 @@ func (c *Client) getTransactions(budgetID string, weekStart, weekEnd time.Time) 
 
 	var transactions []Transaction
 	for _, t := range transactionsData {
-		// Filter transactions within the date range (until date)
 		txDate := t.Date.Time
-		if txDate.Before(weekStart) || txDate.After(weekEnd) {
+		if txDate.Before(start) || txDate.After(end) {
 			continue
 		}
 

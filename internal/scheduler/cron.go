@@ -78,6 +78,13 @@ func (s *Scheduler) Start() error {
 		return err
 	}
 
+	// Add monthly wrap job
+	log.Printf("Registering monthly wrap with cron expression: %s", s.config.Schedule.MonthlyCron)
+	_, err = s.cron.AddFunc(s.config.Schedule.MonthlyCron, s.runMonthlyWrap)
+	if err != nil {
+		return err
+	}
+
 	// Start the cron scheduler
 	s.cron.Start()
 
@@ -88,6 +95,11 @@ func (s *Scheduler) Start() error {
 // RunOnce runs the weekly wrap job once (useful for testing/dry-run)
 func (s *Scheduler) RunOnce() {
 	s.runWeeklyWrap()
+}
+
+// RunMonthlyOnce runs the monthly wrap job once (useful for testing/dry-run)
+func (s *Scheduler) RunMonthlyOnce() {
+	s.runMonthlyWrap()
 }
 
 func (s *Scheduler) runWeeklyWrap() {
@@ -135,6 +147,49 @@ func (s *Scheduler) runWeeklyWrap() {
 		}
 
 		log.Println("Weekly wrap completed successfully")
+	} else {
+		log.Println("Telegram bot is not configured, skipping message send")
+	}
+}
+
+func (s *Scheduler) runMonthlyWrap() {
+	log.Println("Running monthly wrap...")
+
+	now := time.Now()
+	prev := now.AddDate(0, -1, 0)
+
+	log.Printf("Processing month: %s", prev.Format("January 2006"))
+
+	data, err := s.ynabClient.GetMonthlyData(prev.Year(), int(prev.Month()))
+	if err != nil {
+		log.Printf("Failed to get monthly data: %v", err)
+		return
+	}
+
+	topCategoriesLimit := s.config.Thresholds.TopCategoriesCount
+	analysis, err := s.analyzer.AnalyzeMonthlyData(data, topCategoriesLimit)
+	if err != nil {
+		log.Printf("Failed to analyze monthly data: %v", err)
+		return
+	}
+
+	message := s.formatMonthlyMessage(analysis)
+
+	if s.dryRun {
+		separator := strings.Repeat("=", 80)
+		log.Println("\n" + separator)
+		log.Println("DRY RUN MODE - Output that would be sent to Telegram:")
+		log.Println(separator)
+		fmt.Println(message)
+		log.Println(separator)
+		log.Println("Monthly wrap dry-run completed successfully (not sent to Telegram)")
+	} else if s.telegramBot != nil {
+		err = s.telegramBot.SendWeeklyWrap(message)
+		if err != nil {
+			log.Printf("Failed to send Telegram message: %v", err)
+			return
+		}
+		log.Println("Monthly wrap completed successfully")
 	} else {
 		log.Println("Telegram bot is not configured, skipping message send")
 	}
@@ -211,6 +266,79 @@ func (s *Scheduler) formatMessage(analysis *processor.AnalysisResult) string {
 				message += "Last 3 transactions:\n"
 				for count, tx := range concern.Transactions {
 					// YNAB stores spending as negative, convert to positive for display
+					if count == 3 {
+						break
+					}
+					txAmount := -float64(tx.Amount) / 1000
+					txAmountStr := s.formatAmount(txAmount)
+					date := ""
+					if tx.Date != nil {
+						date = tx.Date.Format("01-02")
+					}
+					memo := tx.Memo
+					if memo == "" {
+						memo = tx.PayeeName
+					}
+					message += fmt.Sprintf("  • %s: $%s - %s\n", date, txAmountStr, memo)
+				}
+			}
+		}
+	} else {
+		message += "• No categories over budget - great job! 🎉\n"
+	}
+
+	return message
+}
+
+func (s *Scheduler) formatMonthlyMessage(analysis *processor.AnalysisResult) string {
+	spent := float64(analysis.Overview.TotalSpent) / 1000
+	spentStr := s.formatAmount(spent)
+
+	categoryCountText := "Spending Categories"
+	if len(analysis.TopSpending) == 0 {
+		categoryCountText = "No Spending Categories"
+	} else if len(analysis.TopSpending) == 1 {
+		categoryCountText = "1 Spending Category"
+	} else {
+		categoryCountText = fmt.Sprintf("%d Spending Categories", len(analysis.TopSpending))
+	}
+
+	message := fmt.Sprintf(
+		"📊 **Monthly Financial Wrap - %s**\n\n"+
+			"💰 **Total Spent**: $%s\n\n"+
+			"🏆 **Top %s**\n",
+		analysis.DateRange,
+		spentStr,
+		categoryCountText,
+	)
+
+	for _, category := range analysis.TopSpending {
+		monthlySpent := float64(category.Spent) / 1000
+		monthlyBalance := float64(category.Balance) / 1000
+
+		spentStr := s.formatAmount(monthlySpent)
+		balanceStr := s.formatAmount(monthlyBalance)
+
+		message += fmt.Sprintf("• **%s**: Monthly: $%s  Balance: $%s\n",
+			category.Category, spentStr, balanceStr)
+	}
+
+	message += "\n⚠️ **Over Budget Categories**\n"
+
+	if len(analysis.Concerns) > 0 {
+		for _, concern := range analysis.Concerns {
+			monthlySpent := float64(concern.Spent) / 1000
+			monthlyBalance := float64(concern.Balance) / 1000
+
+			spentStr := s.formatAmount(monthlySpent)
+			balanceStr := s.formatAmount(monthlyBalance)
+
+			message += fmt.Sprintf("\n**%s**: Monthly: $%s  Balance: $%s\n",
+				concern.Category, spentStr, balanceStr)
+
+			if len(concern.Transactions) > 0 {
+				message += "Last 3 transactions:\n"
+				for count, tx := range concern.Transactions {
 					if count == 3 {
 						break
 					}

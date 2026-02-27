@@ -56,6 +56,14 @@ type WeeklyData struct {
 	WeekEnd      time.Time
 }
 
+type MonthlyData struct {
+	Budget       *Budget
+	Categories   []Category
+	Transactions []Transaction
+	MonthStart   time.Time
+	MonthEnd     time.Time
+}
+
 type CategorySpending struct {
 	Category     Category
 	Spent        int64
