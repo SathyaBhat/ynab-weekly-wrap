@@ -67,6 +67,12 @@ func makeAnalysis(dateRange string, totalSpent int64, topCategories []processor.
 	}
 }
 
+func makeAnalysisWithPrev(dateRange string, totalSpent int64, topCategories []processor.TopSpendingCategory, concerns []processor.CategoryConcernWithTransactions) *processor.AnalysisResult {
+	analysis := makeAnalysis(dateRange, totalSpent, topCategories, concerns)
+	analysis.HasPrevData = true
+	return analysis
+}
+
 func TestFormatMonthlyMessage_Header(t *testing.T) {
 	s := newTestScheduler()
 	analysis := makeAnalysis("January 2026", 700_000, nil, nil)
@@ -211,5 +217,61 @@ func TestFormatMessage_NoConcerns(t *testing.T) {
 	msg := s.formatMessage(analysis)
 	if !strings.Contains(msg, "No categories over budget") {
 		t.Errorf("expected 'No categories over budget', got:\n%s", msg)
+	}
+}
+
+// ── formatDelta / delta display ───────────────────────────────────────────────
+
+func TestFormatMonthlyMessage_ShowsDeltaWhenHasPrevData(t *testing.T) {
+	s := newTestScheduler()
+	analysis := makeAnalysisWithPrev("January 2026", 350_000, []processor.TopSpendingCategory{
+		{Category: "Dining", Spent: 350_000, Budgeted: 300_000, Balance: -50_000, PrevSpent: 300_000, SpendDelta: 50_000},
+	}, nil)
+
+	msg := s.formatMonthlyMessage(analysis)
+
+	if !strings.Contains(msg, "vs prev month") {
+		t.Errorf("expected 'vs prev month' when HasPrevData=true, got:\n%s", msg)
+	}
+}
+
+func TestFormatMonthlyMessage_NoDeltaWhenNoPrevData(t *testing.T) {
+	s := newTestScheduler()
+	analysis := makeAnalysis("January 2026", 350_000, []processor.TopSpendingCategory{
+		{Category: "Dining", Spent: 350_000, Budgeted: 300_000, Balance: -50_000},
+	}, nil)
+
+	msg := s.formatMonthlyMessage(analysis)
+
+	if strings.Contains(msg, "vs prev month") {
+		t.Errorf("expected no 'vs prev month' when HasPrevData=false, got:\n%s", msg)
+	}
+}
+
+func TestFormatMonthlyMessage_PositiveDelta(t *testing.T) {
+	s := newTestScheduler()
+	// SpendDelta=50_000 millicents → +$50
+	analysis := makeAnalysisWithPrev("January 2026", 350_000, []processor.TopSpendingCategory{
+		{Category: "Dining", Spent: 350_000, Budgeted: 300_000, Balance: -50_000, PrevSpent: 300_000, SpendDelta: 50_000},
+	}, nil)
+
+	msg := s.formatMonthlyMessage(analysis)
+
+	if !strings.Contains(msg, "+$50") {
+		t.Errorf("expected '+$50' for positive delta, got:\n%s", msg)
+	}
+}
+
+func TestFormatMonthlyMessage_NegativeDelta(t *testing.T) {
+	s := newTestScheduler()
+	// SpendDelta=-30_000 millicents → -$30
+	analysis := makeAnalysisWithPrev("January 2026", 150_000, []processor.TopSpendingCategory{
+		{Category: "Transport", Spent: 150_000, Budgeted: 200_000, Balance: 50_000, PrevSpent: 180_000, SpendDelta: -30_000},
+	}, nil)
+
+	msg := s.formatMonthlyMessage(analysis)
+
+	if !strings.Contains(msg, "-$30") {
+		t.Errorf("expected '-$30' for negative delta, got:\n%s", msg)
 	}
 }

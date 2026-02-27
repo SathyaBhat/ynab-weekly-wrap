@@ -15,6 +15,7 @@ type Category struct {
 	CategoryGroupID string        `json:"category_group_id"`
 	CategoryGroup   CategoryGroup `json:"category_group"`
 	Budgeted        int64         `json:"budgeted"`
+	Activity        int64         `json:"activity"` // total spend for the month in milliunits (negative = spending)
 	Balance         int64         `json:"balance"`
 }
 

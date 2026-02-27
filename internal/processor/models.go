@@ -20,6 +20,7 @@ type AnalysisResult struct {
 	Concerns       []CategoryConcernWithTransactions
 	AheadFocus     *AheadFocus
 	DateRange      string
+	HasPrevData    bool
 }
 
 type Overview struct {
@@ -47,6 +48,8 @@ type TopSpendingCategory struct {
 	Budgeted   int64   // Monthly budgeted amount
 	Balance    int64   // Remaining balance for the month
 	Percentage float64 // Percentage of budget spent in the period
+	PrevSpent  int64   // Spending in the previous period (valid only when HasPrevData=true)
+	SpendDelta int64   // Spent - PrevSpent (positive = spent more)
 }
 
 type CategoryConcernWithTransactions struct {
@@ -57,4 +60,6 @@ type CategoryConcernWithTransactions struct {
 	Over         int64
 	Percentage   float64
 	Transactions []ynab.Transaction
+	PrevSpent    int64 // Spending in the previous period (valid only when HasPrevData=true)
+	SpendDelta   int64 // Spent - PrevSpent (positive = spent more)
 }

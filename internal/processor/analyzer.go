@@ -50,7 +50,7 @@ func (a *Analyzer) AnalyzeWeeklyData(data *ynab.WeeklyData, topCategoriesLimit i
 	return result, nil
 }
 
-func (a *Analyzer) AnalyzeMonthlyData(data *ynab.MonthlyData, topCategoriesLimit int) (*AnalysisResult, error) {
+func (a *Analyzer) AnalyzeMonthlyData(data *ynab.MonthlyData, prevCategorySpend map[string]int64, topCategoriesLimit int) (*AnalysisResult, error) {
 	if data == nil {
 		return nil, fmt.Errorf("monthly data is nil")
 	}
@@ -68,6 +68,20 @@ func (a *Analyzer) AnalyzeMonthlyData(data *ynab.MonthlyData, topCategoriesLimit
 		Concerns:    concerns,
 		AheadFocus:  nil,
 		DateRange:   data.MonthStart.Format("January 2006"),
+	}
+
+	if prevCategorySpend != nil {
+		for i := range result.TopSpending {
+			prevSpent := prevCategorySpend[result.TopSpending[i].Category]
+			result.TopSpending[i].PrevSpent = prevSpent
+			result.TopSpending[i].SpendDelta = result.TopSpending[i].Spent - prevSpent
+		}
+		for i := range result.Concerns {
+			prevSpent := prevCategorySpend[result.Concerns[i].Category]
+			result.Concerns[i].PrevSpent = prevSpent
+			result.Concerns[i].SpendDelta = result.Concerns[i].Spent - prevSpent
+		}
+		result.HasPrevData = true
 	}
 
 	return result, nil
@@ -94,10 +108,19 @@ func (a *Analyzer) calculateCategorySpending(categories []ynab.Category, transac
 			continue
 		}
 
-		spend := spendingMap[cat.Name]
-		percentage := float64(spend) / float64(cat.Budgeted) * 100
+		var spend int64
+		var categoryTxns []ynab.Transaction
+		if transactions == nil {
+			// Monthly path: YNAB's activity figure for the month (negative = spending)
+			if cat.Activity < 0 {
+				spend = -cat.Activity
+			}
+		} else {
+			spend = spendingMap[cat.Name]
+			categoryTxns = txByCategory[cat.Name]
+		}
 
-		categoryTxns := txByCategory[cat.Name]
+		percentage := float64(spend) / float64(cat.Budgeted) * 100
 
 		categorySpendingList = append(categorySpendingList, CategorySpending{
 			Category:     cat,

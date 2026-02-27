@@ -66,7 +66,7 @@ func baseWeeklyData() *ynab.WeeklyData {
 
 func TestAnalyzeMonthlyData_NilInput(t *testing.T) {
 	a := NewAnalyzer()
-	_, err := a.AnalyzeMonthlyData(nil, 5)
+	_, err := a.AnalyzeMonthlyData(nil, nil, 5)
 	if err == nil {
 		t.Fatal("expected error for nil input, got nil")
 	}
@@ -74,7 +74,7 @@ func TestAnalyzeMonthlyData_NilInput(t *testing.T) {
 
 func TestAnalyzeMonthlyData_DateRangeFormat(t *testing.T) {
 	a := NewAnalyzer()
-	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), 5)
+	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), nil, 5)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestAnalyzeMonthlyData_DateRangeFormat(t *testing.T) {
 
 func TestAnalyzeMonthlyData_AheadFocusIsNil(t *testing.T) {
 	a := NewAnalyzer()
-	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), 5)
+	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), nil, 5)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestAnalyzeMonthlyData_AheadFocusIsNil(t *testing.T) {
 
 func TestAnalyzeMonthlyData_TotalSpent(t *testing.T) {
 	a := NewAnalyzer()
-	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), 0)
+	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), nil, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestAnalyzeMonthlyData_TotalSpent(t *testing.T) {
 
 func TestAnalyzeMonthlyData_OverBudgetConcerns(t *testing.T) {
 	a := NewAnalyzer()
-	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), 0)
+	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), nil, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestAnalyzeMonthlyData_TopSpendingLimit(t *testing.T) {
 	a := NewAnalyzer()
 
 	// limit=2 — only top 2 categories returned
-	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), 2)
+	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), nil, 2)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestAnalyzeMonthlyData_TopSpendingLimit(t *testing.T) {
 
 func TestAnalyzeMonthlyData_TopSpendingLimitZeroReturnsAll(t *testing.T) {
 	a := NewAnalyzer()
-	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), 0)
+	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), nil, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestAnalyzeMonthlyData_NoTransactions(t *testing.T) {
 	data.Transactions = nil
 
 	a := NewAnalyzer()
-	result, err := a.AnalyzeMonthlyData(data, 0)
+	result, err := a.AnalyzeMonthlyData(data, nil, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestAnalyzeMonthlyData_DeletedTransactionsIgnored(t *testing.T) {
 	}
 
 	a := NewAnalyzer()
-	result, err := a.AnalyzeMonthlyData(data, 0)
+	result, err := a.AnalyzeMonthlyData(data, nil, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -200,7 +200,7 @@ func TestAnalyzeMonthlyData_PositiveAmountsIgnored(t *testing.T) {
 	}
 
 	a := NewAnalyzer()
-	result, err := a.AnalyzeMonthlyData(data, 0)
+	result, err := a.AnalyzeMonthlyData(data, nil, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestAnalyzeMonthlyData_NoBudgetedCategoriesSkipped(t *testing.T) {
 	}
 
 	a := NewAnalyzer()
-	result, err := a.AnalyzeMonthlyData(data, 0)
+	result, err := a.AnalyzeMonthlyData(data, nil, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -297,7 +297,7 @@ func TestAnalyzeMonthlyData_HealthPercentage(t *testing.T) {
 	}
 
 	a := NewAnalyzer()
-	result, err := a.AnalyzeMonthlyData(data, 0)
+	result, err := a.AnalyzeMonthlyData(data, nil, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -312,7 +312,7 @@ func TestAnalyzeMonthlyData_HealthPercentage(t *testing.T) {
 
 func TestAnalyzeMonthlyData_WinsAreCategoriesWithPositiveBalance(t *testing.T) {
 	a := NewAnalyzer()
-	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), 0)
+	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), nil, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -322,5 +322,71 @@ func TestAnalyzeMonthlyData_WinsAreCategoriesWithPositiveBalance(t *testing.T) {
 		if w.Category == "Dining" {
 			t.Error("Dining (negative balance) should not appear in wins")
 		}
+	}
+}
+
+func TestAnalyzeMonthlyData_PrevDataDelta(t *testing.T) {
+	data := baseMonthlyData()
+	prevCategorySpend := map[string]int64{
+		"Groceries": 350_000,
+		"Transport": 120_000,
+		"Dining":    300_000,
+	}
+
+	a := NewAnalyzer()
+	result, err := a.AnalyzeMonthlyData(data, prevCategorySpend, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !result.HasPrevData {
+		t.Fatal("HasPrevData should be true when prevData is provided")
+	}
+
+	// Find Dining in TopSpending: current=350_000, prev=300_000 → delta=+50_000
+	var diningTop *TopSpendingCategory
+	for i := range result.TopSpending {
+		if result.TopSpending[i].Category == "Dining" {
+			diningTop = &result.TopSpending[i]
+			break
+		}
+	}
+	if diningTop == nil {
+		t.Fatal("Dining not found in TopSpending")
+	}
+	if diningTop.PrevSpent != 300_000 {
+		t.Errorf("Dining.PrevSpent: got %d, want 300000", diningTop.PrevSpent)
+	}
+	if diningTop.SpendDelta != 50_000 {
+		t.Errorf("Dining.SpendDelta: got %d, want 50000", diningTop.SpendDelta)
+	}
+
+	// Find Groceries: current=200_000, prev=350_000 → delta=-150_000
+	var groceriesTop *TopSpendingCategory
+	for i := range result.TopSpending {
+		if result.TopSpending[i].Category == "Groceries" {
+			groceriesTop = &result.TopSpending[i]
+			break
+		}
+	}
+	if groceriesTop == nil {
+		t.Fatal("Groceries not found in TopSpending")
+	}
+	if groceriesTop.PrevSpent != 350_000 {
+		t.Errorf("Groceries.PrevSpent: got %d, want 350000", groceriesTop.PrevSpent)
+	}
+	if groceriesTop.SpendDelta != -150_000 {
+		t.Errorf("Groceries.SpendDelta: got %d, want -150000", groceriesTop.SpendDelta)
+	}
+}
+
+func TestAnalyzeMonthlyData_NilPrevDataHasPrevDataFalse(t *testing.T) {
+	a := NewAnalyzer()
+	result, err := a.AnalyzeMonthlyData(baseMonthlyData(), nil, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.HasPrevData {
+		t.Error("HasPrevData should be false when prevData is nil")
 	}
 }

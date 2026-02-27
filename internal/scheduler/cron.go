@@ -166,8 +166,15 @@ func (s *Scheduler) runMonthlyWrap() {
 		return
 	}
 
+	prevMonthTime := now.AddDate(0, -2, 0)
+	prevCategorySpend, err := s.ynabClient.GetPrevMonthCategorySpend(prevMonthTime.Year(), int(prevMonthTime.Month()))
+	if err != nil {
+		log.Printf("Warning: could not fetch previous month data for comparison: %v", err)
+		prevCategorySpend = nil
+	}
+
 	topCategoriesLimit := s.config.Thresholds.TopCategoriesCount
-	analysis, err := s.analyzer.AnalyzeMonthlyData(data, topCategoriesLimit)
+	analysis, err := s.analyzer.AnalyzeMonthlyData(data, prevCategorySpend, topCategoriesLimit)
 	if err != nil {
 		log.Printf("Failed to analyze monthly data: %v", err)
 		return
@@ -207,6 +214,14 @@ func (s *Scheduler) formatAmount(amount float64) string {
 	formatted = strings.TrimRight(formatted, "0")
 	formatted = strings.TrimRight(formatted, ".")
 	return formatted
+}
+
+func (s *Scheduler) formatDelta(delta int64) string {
+	amount := float64(delta) / 1000
+	if delta >= 0 {
+		return fmt.Sprintf("+$%s", s.formatAmount(amount))
+	}
+	return fmt.Sprintf("-$%s", s.formatAmount(-amount))
 }
 
 func (s *Scheduler) formatMessage(analysis *processor.AnalysisResult) string {
@@ -319,8 +334,13 @@ func (s *Scheduler) formatMonthlyMessage(analysis *processor.AnalysisResult) str
 		spentStr := s.formatAmount(monthlySpent)
 		balanceStr := s.formatAmount(monthlyBalance)
 
-		message += fmt.Sprintf("• **%s**: Last Month Spend: $%s  Balance: $%s\n",
-			category.Category, spentStr, balanceStr)
+		spendField := "$" + spentStr
+		if analysis.HasPrevData {
+			spendField += fmt.Sprintf(" (%s vs prev month)", s.formatDelta(category.SpendDelta))
+		}
+
+		message += fmt.Sprintf("• **%s**: Last Month Spend: %s  Balance: $%s\n",
+			category.Category, spendField, balanceStr)
 	}
 
 	message += "\n⚠️ **Over Budget Categories**\n"
@@ -333,8 +353,13 @@ func (s *Scheduler) formatMonthlyMessage(analysis *processor.AnalysisResult) str
 			spentStr := s.formatAmount(monthlySpent)
 			balanceStr := s.formatAmount(monthlyBalance)
 
-			message += fmt.Sprintf("\n**%s**: Last Month Spend: $%s  Balance: $%s\n",
-				concern.Category, spentStr, balanceStr)
+			spendField := "$" + spentStr
+			if analysis.HasPrevData {
+				spendField += fmt.Sprintf(" (%s vs prev month)", s.formatDelta(concern.SpendDelta))
+			}
+
+			message += fmt.Sprintf("\n**%s**: Last Month Spend: %s  Balance: $%s\n",
+				concern.Category, spendField, balanceStr)
 
 			if len(concern.Transactions) > 0 {
 				message += "Last 3 transactions:\n"
