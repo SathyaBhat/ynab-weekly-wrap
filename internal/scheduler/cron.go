@@ -8,7 +8,9 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"github.com/sathyabhat/ynab-weekly-wrap/internal/config"
+	"github.com/sathyabhat/ynab-weekly-wrap/internal/discord"
 	"github.com/sathyabhat/ynab-weekly-wrap/internal/processor"
+	"github.com/sathyabhat/ynab-weekly-wrap/internal/publisher"
 	"github.com/sathyabhat/ynab-weekly-wrap/internal/telegram"
 	"github.com/sathyabhat/ynab-weekly-wrap/internal/ynab"
 )
@@ -17,7 +19,7 @@ type Scheduler struct {
 	cron         *cron.Cron
 	config       *config.Config
 	ynabClient   *ynab.Client
-	telegramBot  *telegram.Bot
+	publishers   []publisher.Publisher
 	analyzer     *processor.Analyzer
 	dryRun       bool
 	skipTelegram bool
@@ -57,13 +59,24 @@ func NewScheduler(cfg *config.Config, opts ...SchedulerOption) *Scheduler {
 		opt(sched)
 	}
 
-	// Only create Telegram bot if not skipping it
-	if !sched.skipTelegram && !sched.dryRun {
-		telegramBot, err := telegram.NewBot(cfg.Telegram)
-		if err != nil {
-			log.Fatalf("Failed to create Telegram bot: %v", err)
+	// Only initialize publishers if not in dry-run mode
+	if !sched.dryRun {
+		// Initialize Telegram if configured and not skipped
+		if !sched.skipTelegram && cfg.Telegram.BotToken != "" && cfg.Telegram.ChatID != 0 {
+			telegramBot, err := telegram.NewBot(cfg.Telegram)
+			if err != nil {
+				log.Fatalf("Failed to create Telegram bot: %v", err)
+			}
+			sched.publishers = append(sched.publishers, telegramBot)
+			log.Println("Telegram publisher initialized")
 		}
-		sched.telegramBot = telegramBot
+
+		// Initialize Discord if configured
+		if cfg.Discord.WebhookURL != "" {
+			discordPublisher := discord.NewWebhookPublisher(cfg.Discord.WebhookURL)
+			sched.publishers = append(sched.publishers, discordPublisher)
+			log.Println("Discord publisher initialized")
+		}
 	}
 
 	return sched
@@ -133,22 +146,24 @@ func (s *Scheduler) runWeeklyWrap() {
 	if s.dryRun {
 		separator := strings.Repeat("=", 80)
 		log.Println("\n" + separator)
-		log.Println("DRY RUN MODE - Output that would be sent to Telegram:")
+		log.Println("DRY RUN MODE - Output that would be sent to publishers:")
 		log.Println(separator)
 		fmt.Println(message)
 		log.Println(separator)
-		log.Println("Weekly wrap dry-run completed successfully (not sent to Telegram)")
-	} else if s.telegramBot != nil {
-		// Send to Telegram
-		err = s.telegramBot.SendMessage(message)
-		if err != nil {
-			log.Printf("Failed to send Telegram message: %v", err)
-			return
+		log.Println("Weekly wrap dry-run completed successfully (not sent to publishers)")
+	} else if len(s.publishers) > 0 {
+		// Send to all configured publishers
+		for _, pub := range s.publishers {
+			err = pub.Publish(message)
+			if err != nil {
+				log.Printf("Failed to send message via publisher: %v", err)
+				// Continue to next publisher
+			}
 		}
 
 		log.Println("Weekly wrap completed successfully")
 	} else {
-		log.Println("Telegram bot is not configured, skipping message send")
+		log.Println("No publishers are configured, skipping message send")
 	}
 }
 
@@ -185,20 +200,21 @@ func (s *Scheduler) runMonthlyWrap() {
 	if s.dryRun {
 		separator := strings.Repeat("=", 80)
 		log.Println("\n" + separator)
-		log.Println("DRY RUN MODE - Output that would be sent to Telegram:")
+		log.Println("DRY RUN MODE - Output that would be sent to publishers:")
 		log.Println(separator)
 		fmt.Println(message)
 		log.Println(separator)
-		log.Println("Monthly wrap dry-run completed successfully (not sent to Telegram)")
-	} else if s.telegramBot != nil {
-		err = s.telegramBot.SendMessage(message)
-		if err != nil {
-			log.Printf("Failed to send Telegram message: %v", err)
-			return
+		log.Println("Monthly wrap dry-run completed successfully (not sent to publishers)")
+	} else if len(s.publishers) > 0 {
+		for _, pub := range s.publishers {
+			err = pub.Publish(message)
+			if err != nil {
+				log.Printf("Failed to send message via publisher: %v", err)
+			}
 		}
 		log.Println("Monthly wrap completed successfully")
 	} else {
-		log.Println("Telegram bot is not configured, skipping message send")
+		log.Println("No publishers are configured, skipping message send")
 	}
 }
 

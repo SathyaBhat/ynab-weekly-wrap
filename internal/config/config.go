@@ -11,6 +11,7 @@ import (
 type Config struct {
 	YNAB       YNABConfig     `yaml:"ynab"`
 	Telegram   TelegramConfig `yaml:"telegram"`
+	Discord    DiscordConfig  `yaml:"discord"`
 	Schedule   ScheduleConfig `yaml:"schedule"`
 	Logging    LoggingConfig  `yaml:"logging"`
 	Thresholds ThresholdConfig `yaml:"thresholds"`
@@ -25,6 +26,10 @@ type TelegramConfig struct {
 	BotToken string `yaml:"bot_token"`
 	ChatID   int64  `yaml:"chat_id"`
 	TopicID  int    `yaml:"topic_id"` // Optional: Topic ID for topics in supergroups
+}
+
+type DiscordConfig struct {
+	WebhookURL string `yaml:"webhook_url"`
 }
 
 type ScheduleConfig struct {
@@ -105,6 +110,8 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 
+	config.Discord.WebhookURL = os.Getenv("DISCORD_WEBHOOK_URL")
+
 	config.Schedule.Cron = os.Getenv("SCHEDULE_CRON")
 	config.Schedule.MonthlyCron = os.Getenv("MONTHLY_SCHEDULE_CRON")
 	config.Logging.Level = os.Getenv("LOG_LEVEL")
@@ -138,7 +145,7 @@ func LoadConfig() (*Config, error) {
 }
 
 // ValidateConfig validates required configuration fields
-// testMode: if true, skip Telegram validation (useful for dry-run testing)
+// testMode: if true, skip publisher validation (useful for dry-run testing)
 func ValidateConfig(config *Config, testMode bool) error {
 	// Always require YNAB credentials
 	if config.YNAB.APIToken == "" {
@@ -148,17 +155,18 @@ func ValidateConfig(config *Config, testMode bool) error {
 		return fmt.Errorf("YNAB budget ID is required (set YNAB_BUDGET_ID)")
 	}
 
-	// In test mode (dry-run), skip Telegram validation
+	// In test mode (dry-run), skip publisher validation
 	if testMode {
 		return nil
 	}
 
-	// For production, require Telegram credentials
-	if config.Telegram.BotToken == "" {
-		return fmt.Errorf("Telegram bot token is required (set TELEGRAM_BOT_TOKEN)")
+	// For production, require at least one publisher to be configured
+	hasTelegram := config.Telegram.BotToken != "" && config.Telegram.ChatID != 0
+	hasDiscord := config.Discord.WebhookURL != ""
+
+	if !hasTelegram && !hasDiscord {
+		return fmt.Errorf("at least one publisher must be configured (Telegram or Discord)")
 	}
-	if config.Telegram.ChatID == 0 {
-		return fmt.Errorf("Telegram chat ID is required (set TELEGRAM_CHAT_ID)")
-	}
+
 	return nil
 }

@@ -39,13 +39,19 @@ func NewBot(telegramConfig config.TelegramConfig) (*Bot, error) {
 	}, nil
 }
 
-func (b *Bot) SendMessage(message string) error {
+func (b *Bot) Publish(message string) error {
 	log.Printf("Sending message to chat ID: %d", b.config.ChatID)
 
 	return b.sendMessage(message)
 }
 
 func (b *Bot) sendMessage(message string) error {
+	// Telegram has a 4096 character limit
+	if len(message) > 4096 {
+		log.Printf("Message too long for Telegram (%d characters), truncating to 4096", len(message))
+		message = message[:4093] + "..."
+	}
+
 	req := SendMessageRequest{
 		ChatID:                b.config.ChatID,
 		Text:                  message,

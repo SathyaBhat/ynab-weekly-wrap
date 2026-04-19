@@ -32,12 +32,9 @@ func main() {
 
 	log.Printf("Configuration loaded successfully")
 	log.Printf("Budget ID: %s", cfg.YNAB.BudgetID)
-	if cfg.Telegram.ChatID != 0 {
-		log.Printf("Telegram Chat ID: %d", cfg.Telegram.ChatID)
-	}
 
 	if *dryRun {
-		log.Println("[DRY RUN MODE] Will print output to stdout instead of sending to Telegram")
+		log.Println("[DRY RUN MODE] Will print output to stdout instead of sending to publishers")
 	}
 	if *once {
 		log.Println("[ONCE MODE] Will run once and exit")
