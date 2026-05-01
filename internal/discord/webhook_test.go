@@ -2,9 +2,11 @@ package discord
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -54,22 +56,29 @@ func TestDiscordPublish(t *testing.T) {
 	}
 }
 
-func TestDiscordPublish_Truncate(t *testing.T) {
-	// 2005 characters (exceeds 2000)
-	longMessage := ""
-	for i := 0; i < 201; i++ {
-		longMessage += "1234567890"
+func TestDiscordPublish_Split(t *testing.T) {
+	// Build a long message with newlines (realistic category lines) that exceeds 2000 chars.
+	var lines []string
+	for i := 0; i < 50; i++ {
+		lines = append(lines, fmt.Sprintf("Line %d: abcdefghijklmnopqrstuvwxyz1234567890", i))
+	}
+	longMessage := strings.Join(lines, "\n")
+
+	if len(longMessage) <= 2000 {
+		t.Fatalf("Test message should exceed 2000 chars, got %d", len(longMessage))
 	}
 
+	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		var payload map[string]string
 		_ = json.Unmarshal(body, &payload)
 
 		if len(payload["content"]) > 2000 {
-			t.Errorf("Expected truncated content (max 2000), got length %d", len(payload["content"]))
+			t.Errorf("Expected chunk length <= 2000, got %d", len(payload["content"]))
 		}
 
+		requestCount++
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -81,5 +90,50 @@ func TestDiscordPublish_Truncate(t *testing.T) {
 	err := p.Publish(longMessage)
 	if err != nil {
 		t.Errorf("Publish failed: %v", err)
+	}
+
+	if requestCount < 2 {
+		t.Errorf("Expected multiple requests for split message, got %d", requestCount)
+	}
+}
+
+func TestDiscordPublish_SplitAtLineBoundary(t *testing.T) {
+	// Build a message where categories are lines; the split should occur at line boundaries
+	var parts []string
+	for i := 0; i < 50; i++ {
+		parts = append(parts, fmt.Sprintf("Category %d: this is a spending line with some extra text", i))
+	}
+	message := strings.Join(parts, "\n")
+
+	if len(message) <= 2000 {
+		t.Fatalf("Test message should exceed 2000 chars, got %d", len(message))
+	}
+
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]string
+		_ = json.Unmarshal(body, &payload)
+
+		if len(payload["content"]) > 2000 {
+			t.Errorf("Expected chunk length <= 2000, got %d", len(payload["content"]))
+		}
+
+		requestCount++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	p := &WebhookPublisher{
+		WebhookURL: server.URL,
+	}
+
+	err := p.Publish(message)
+	if err != nil {
+		t.Errorf("Publish failed: %v", err)
+	}
+
+	if requestCount < 2 {
+		t.Errorf("Expected multiple requests for split message, got %d", requestCount)
 	}
 }
